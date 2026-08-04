@@ -1,0 +1,53 @@
+rules_version = '2';
+
+// ⚠️ Reconstruidas según lo documentado en el traspaso del proyecto
+// (lectura pública de chiefs, escritura con sesión anónima para el resto).
+// No es una descarga directa del archivo real desplegado en Firebase —
+// antes de reemplazar el que ya está en producción, compáralo con este
+// o pídele el original a quien maneja el backend de los Chiefs, para no
+// perder alguna regla que no esté documentada acá.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Chiefs: cualquiera puede leer (sin login) para que la Torre cargue
+    // sin fricción; escribir requiere sesión anónima (los agentes de
+    // Cowork inician sesión anónima antes de publicar).
+    match /chiefs/{chiefId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+
+      match /updates/{fecha} {
+        allow read: if true;
+        allow write: if request.auth != null;
+      }
+      match /responses/{fecha} {
+        allow read, write: if request.auth != null;
+      }
+    }
+
+    // Agentes, días y reuniones: la Torre lee y escribe con sesión anónima.
+    match /agentes/{agenteId} {
+      allow read, write: if request.auth != null;
+    }
+    match /dias/{fecha} {
+      allow read, write: if request.auth != null;
+    }
+    match /reuniones/{semana} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Conversaciones generadas en Sala de reuniones (nueva — agregada en
+    // esta sesión). Sin esta regla, "Generar conversación" tira
+    // "Missing or insufficient permissions" y solo queda guardada en la
+    // sesión del navegador, no en Firestore.
+    match /meetingRequests/{id} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Todo lo demás queda cerrado por defecto.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
